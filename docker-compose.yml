@@ -1,0 +1,17 @@
+services:
+  transit:
+    build: .
+    ports:
+      - "8080:8080"   # HTTP (frontend)
+      - "8765:8765"   # WebSocket
+    environment:
+      - CESIUM_ION_TOKEN=${CESIUM_ION_TOKEN}
+      - ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+    volumes:
+      - transit_paths:/data/paths
+      - transit_msgs:/ws/install/transit_msgs
+    network_mode: host  # For ROS2 DDS discovery with host system
+
+volumes:
+  transit_paths:
+  transit_msgs:

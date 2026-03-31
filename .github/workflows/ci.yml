@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  # ------------------------------------------------------------------
+  # Backend unit tests (no ROS2 needed — fast, runs natively)
+  # ------------------------------------------------------------------
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest pytest-asyncio
+
+      - name: Run tests
+        working-directory: src/transit_backend
+        run: python -m pytest test/ -v --ignore=test/test_nav_path_bridge.py
+
+  # ------------------------------------------------------------------
+  # Frontend lint (ESLint)
+  # ------------------------------------------------------------------
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: src/transit_frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Run ESLint
+        working-directory: src/transit_frontend
+        run: npx eslint js/ --max-warnings 0
+
+  # ------------------------------------------------------------------
+  # Full integration test in Docker (ROS2 Jazzy — builds msgs, runs all tests)
+  # ------------------------------------------------------------------
+  integration-test:
+    name: Integration Test (ROS2 Jazzy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build test image
+        run: docker build -f docker/Dockerfile.test -t transit-test .
+
+      - name: Run tests
+        run: docker run --rm transit-test
+
+  # ------------------------------------------------------------------
+  # Docker build smoke test (ensures the production image builds)
+  # ------------------------------------------------------------------
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build production image
+        run: docker build -t transit:ci .

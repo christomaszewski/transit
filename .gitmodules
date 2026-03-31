@@ -1,0 +1,9 @@
+[submodule "src/transit_msgs"]
+	path = src/transit_msgs
+	url = git@github.com:christomaszewski/transit_msgs.git
+[submodule "src/transit_backend"]
+	path = src/transit_backend
+	url = git@github.com:christomaszewski/transit_backend.git
+[submodule "src/transit_frontend"]
+	path = src/transit_frontend
+	url = git@github.com:christomaszewski/transit_frontend.git

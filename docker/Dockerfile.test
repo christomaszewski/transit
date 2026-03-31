@@ -1,0 +1,66 @@
+FROM ros:jazzy
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-yaml \
+        nodejs \
+        npm && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --break-system-packages --ignore-installed \
+    pytest \
+    pytest-asyncio \
+    websockets \
+    aiohttp
+
+WORKDIR /ros2_ws
+
+# Copy source packages
+COPY src/transit_msgs/ src/transit_msgs/
+COPY src/transit_backend/ src/transit_backend/
+COPY src/transit_frontend/ src/transit_frontend/
+
+# Build transit_msgs (needed for nav_path_bridge tests)
+RUN . /opt/ros/jazzy/setup.sh && \
+    colcon build --packages-select transit_msgs
+
+# Install frontend linting dependencies
+RUN cd src/transit_frontend && npm install --no-audit --no-fund
+
+COPY <<'SCRIPT' /ros2_ws/run_tests.sh
+#!/bin/bash
+set -e
+source /opt/ros/jazzy/setup.bash
+source /ros2_ws/install/setup.bash
+
+BACKEND_EXIT=0
+FRONTEND_EXIT=0
+
+echo "========================================"
+echo " transit_backend tests"
+echo "========================================"
+cd /ros2_ws/src/transit_backend
+python3 -m pytest test/ -v || BACKEND_EXIT=$?
+
+echo ""
+echo "========================================"
+echo " transit_frontend lint"
+echo "========================================"
+cd /ros2_ws/src/transit_frontend
+npx eslint js/ --max-warnings 0 || FRONTEND_EXIT=$?
+
+echo ""
+echo "========================================"
+if [ $BACKEND_EXIT -eq 0 ] && [ $FRONTEND_EXIT -eq 0 ]; then
+    echo " ALL TESTS PASSED"
+else
+    echo " SOME TESTS FAILED (backend=$BACKEND_EXIT, frontend=$FRONTEND_EXIT)"
+fi
+echo "========================================"
+
+exit $(( BACKEND_EXIT || FRONTEND_EXIT ))
+SCRIPT
+RUN chmod +x /ros2_ws/run_tests.sh
+
+CMD ["/ros2_ws/run_tests.sh"]
